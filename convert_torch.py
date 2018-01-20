@@ -149,6 +149,25 @@ def lua_recursive_model(module,seq):
             n = LambdaReduce(lambda x,y,dim=dim: torch.cat((x,y),dim))
             lua_recursive_model(m,n)
             add_submodule(seq,n)
+        elif name == 'InstanceNormalization':
+            n = nn.InstanceNorm2d(m.num_features,eps=m.eps,momentum=m.momentum,affine=True)
+            n.weight = nn.Parameter(m.weight, True)
+            n.bias = nn.Parameter(m.bias, True)
+            add_submodule(seq,n)
+            continue
+        elif name == 'InstanceNormalization' or name =='nn.InstanceNormalization':
+            num_features = m.nOutput
+            eps = m.eps
+            momentum = m.momentum
+            n = nn.InstanceNorm2d(num_features,eps=eps,momentum=momentum,affine=True)
+            n.weight = nn.Parameter(m.weight, True)
+            n.bias = nn.Parameter(m.bias, True)
+            add_submodule(seq,n)
+            continue
+        elif name == 'Tanh':
+            n = nn.Tanh()
+            add_submodule(seq,n)
+            continue
         elif name == 'TorchObject':
             print('Not Implement',name,real._typename)
         else:
@@ -213,6 +232,10 @@ def lua_recursive_source(module):
         elif name == 'SpatialCrossMapLRN':
             lrn = 'lnn.SpatialCrossMapLRN(*{})'.format((m.size,m.alpha,m.beta,m.k))
             s += ['Lambda(lambda x,lrn={}: Variable(lrn.forward(x.data)))'.format(lrn)]
+        elif name == 'InstanceNormalization' or name =='nn.InstanceNormalization':
+            s += ['nn.InstanceNormalization({},{},bias={})'.format(m.nOutput,m.weight.size(0),(m.bias is not None))]
+        elif name == 'Tanh':
+            s += ['nn.ReLU()']
 
         elif name == 'Sequential':
             s += ['nn.Sequential( # Sequential']
